@@ -69,3 +69,7 @@ Applications
 	•	Real-time control systems.
 
 
+## Acknowledgements
+
+This README.md created with the assistance of Claude.ai
+
