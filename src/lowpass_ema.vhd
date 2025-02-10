@@ -138,12 +138,11 @@ ASSERT False REPORT "AVG_SHIFT: " & integer'image(AVG_SHIFT) SEVERITY NOTE;
 ASSERT False REPORT "FULL_SCALE: " & real'image(FULL_SCALE) SEVERITY NOTE;
 --ASSERT False REPORT "AVG_REAL: " & real'image(avg_real) SEVERITY NOTE;
 
-avg_real <= SQRT(real(integer(to_integer(shift_right(sum, AVG_SHIFT)))));
-avg_rms <= 20.0*LOG10(avg_real/FULL_SCALE) WHEN avg_real > 0.0 ELSE 0.0;
+--avg_real <= SQRT(real(integer(to_integer(shift_right(sum, AVG_SHIFT)))));
+--avg_rms <= 20.0*LOG10(avg_real/FULL_SCALE) WHEN avg_real > 0.0 ELSE 0.0;
 -- pragma translate_on
 
 average 	<= std_logic_vector(resize(shift_right(sum, AVG_SHIFT), DATA_W));
-average_ena <= '1';
 
 alpha_signed <= signed(alpha);
 alpha_m 	 <= alpha_max - alpha_signed;
@@ -160,11 +159,13 @@ BEGIN
 	IF clk'EVENT AND clk = '1' THEN
 		IF init = '1' THEN 
 			sum	<= (OTHERS => '0');
+			average_ena <= '0';
 		ELSE
 
 			-- ema[n] =  ( alpha*16*x[n]*16 + [1-alpha]*ema[n-1] ) / 256
 
 			sum <= mult_data + mult_sum;
+			average_ena <= data_ena;
 
 		END IF;
 	END IF;
