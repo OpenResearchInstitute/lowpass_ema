@@ -75,7 +75,7 @@ ENTITY lowpass_ema IS
 		DATA_W 			: NATURAL := 23;
 		MULT_A_W		: NATURAL := 25;
 		MULT_B_W 		: NATURAL := 18;
-		PROD_W			: NATURAL := MULT_A_W + MULT_B_W
+		PROD_W			: NATURAL := 43 -- MULT_A_W + MULT_B_W
 	);
 	PORT (
 		clk 				: IN  std_logic;
