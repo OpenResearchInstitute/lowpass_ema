@@ -107,14 +107,14 @@ ARCHITECTURE rtl OF lowpass_ema IS
 	SIGNAL alpha_signed		: signed(ALPHA_W -1 DOWNTO 0);
 	SIGNAL alpha_m 			: signed(ALPHA_W -1 DOWNTO 0);
 
-	CONSTANT SUM_SHIFT 		: NATURAL := PROD_W - MULT_A_W;
+	CONSTANT SUM_SHIFT_W 	: NATURAL := PROD_W - MULT_A_W;
 	SIGNAL sum				: signed(PROD_W -1 DOWNTO 0);
-	SIGNAL sum_r			: signed(PROD_W - SUM_SHIFT -1 DOWNTO 0);
+	SIGNAL sum_shift		: signed(PROD_W - SUM_SHIFT_W -1 DOWNTO 0);
 
 	CONSTANT MULT_DATA_SHIFT: NATURAL := PROD_W - ALPHA_W - DATA_W + 1;
 	SIGNAL mult_data 		: signed(PROD_W -1 DOWNTO 0);
 
-	CONSTANT MULT_SUM_SHIFT	: NATURAL := SUM_SHIFT - (ALPHA_W -1);
+	CONSTANT MULT_SUM_SHIFT	: NATURAL := SUM_SHIFT_W - (ALPHA_W -1);
 	SIGNAL mult_sum 		: signed(PROD_W -1 DOWNTO 0);
 
 	CONSTANT AVG_SHIFT 		: NATURAL := PROD_W - DATA_W;
@@ -130,8 +130,9 @@ ARCHITECTURE rtl OF lowpass_ema IS
 BEGIN 
 
 -- pragma translate_off
+ASSERT False REPORT "ALPHA_W: " & integer'image(ALPHA_W) SEVERITY NOTE;
 ASSERT False REPORT "PROD_W: " & integer'image(PROD_W) SEVERITY NOTE;
-ASSERT False REPORT "SUM_SHIFT: " & integer'image(SUM_SHIFT) SEVERITY NOTE;
+ASSERT False REPORT "SUM_SHIFT: " & integer'image(SUM_SHIFT_W) SEVERITY NOTE;
 ASSERT False REPORT "MULT_DATA_SHIFT: " & integer'image(MULT_DATA_SHIFT) SEVERITY NOTE;
 ASSERT False REPORT "MULT_SUM_SHIFT: " & integer'image(MULT_SUM_SHIFT) SEVERITY NOTE;
 ASSERT False REPORT "AVG_SHIFT: " & integer'image(AVG_SHIFT) SEVERITY NOTE;
@@ -142,30 +143,38 @@ ASSERT False REPORT "FULL_SCALE: " & real'image(FULL_SCALE) SEVERITY NOTE;
 --avg_rms <= 20.0*LOG10(avg_real/FULL_SCALE) WHEN avg_real > 0.0 ELSE 0.0;
 -- pragma translate_on
 
-average 	<= std_logic_vector(resize(shift_right(sum, AVG_SHIFT), DATA_W));
 
-alpha_signed <= signed(alpha);
-alpha_m 	 <= alpha_max - alpha_signed;
+sum 		<=  shift_left(resize(mult_data, PROD_W), MULT_DATA_SHIFT) + 
+				shift_left(resize(mult_sum,  PROD_W), MULT_SUM_SHIFT);
 
-data_signed <= signed(data);
+sum_shift 	<=  resize(shift_right(sum, SUM_SHIFT_W), PROD_W - SUM_SHIFT_W);
 
-sum_r 		<= resize(shift_right(sum, SUM_SHIFT), PROD_W - SUM_SHIFT);
-
-mult_data 	<= shift_left(resize(data_signed * alpha_signed, PROD_W), MULT_DATA_SHIFT);
-mult_sum 	<= shift_left(resize(sum_r * alpha_m, PROD_W), MULT_SUM_SHIFT);
 
 proc : PROCESS (clk)
 BEGIN
 	IF clk'EVENT AND clk = '1' THEN
-		IF init = '1' THEN 
-			sum	<= (OTHERS => '0');
-			average_ena <= '0';
+		IF init = '1' THEN
+			alpha_signed <= (OTHERS => '0');
+			alpha_m		 <= (OTHERS => '0');
+			data_signed	 <= (OTHERS => '0');
+			mult_data	 <= (OTHERS => '0');
+			mult_sum	 <= (OTHERS => '0');
+			average	 	 <= (OTHERS => '0');
+			average_ena  <= '0';
 		ELSE
+
+			alpha_signed <= signed(alpha);
+			alpha_m 	 <= alpha_max - alpha_signed;
+
+			data_signed  <= signed(data);
 
 			-- ema[n] =  ( alpha*16*x[n]*16 + [1-alpha]*ema[n-1] ) / 256
 
-			sum <= mult_data + mult_sum;
-			average_ena <= data_ena;
+			mult_data	 <= resize(data_signed * alpha_signed, PROD_W);
+			mult_sum 	 <= resize(sum_shift   * alpha_m     , PROD_W);    
+
+			average 	 <= std_logic_vector(resize(shift_right(sum, AVG_SHIFT), DATA_W));
+			average_ena  <= data_ena;
 
 		END IF;
 	END IF;
