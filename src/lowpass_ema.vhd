@@ -162,18 +162,19 @@ BEGIN
 			average	 	 <= (OTHERS => '0');
 			average_ena  <= '0';
 		ELSE
+			IF data_ena = '1' THEN
+				alpha_signed <= signed(alpha);
+				alpha_m 	 <= alpha_max - alpha_signed;
 
-			alpha_signed <= signed(alpha);
-			alpha_m 	 <= alpha_max - alpha_signed;
+				data_signed  <= signed(data);
 
-			data_signed  <= signed(data);
+				-- ema[n] =  ( alpha*16*x[n]*16 + [1-alpha]*ema[n-1] ) / 256
 
-			-- ema[n] =  ( alpha*16*x[n]*16 + [1-alpha]*ema[n-1] ) / 256
+				mult_data	 <= resize(data_signed * alpha_signed, PROD_W);
+				mult_sum 	 <= resize(sum_shift   * alpha_m     , PROD_W);    
 
-			mult_data	 <= resize(data_signed * alpha_signed, PROD_W);
-			mult_sum 	 <= resize(sum_shift   * alpha_m     , PROD_W);    
-
-			average 	 <= std_logic_vector(resize(shift_right(sum, AVG_SHIFT), DATA_W));
+				average 	 <= std_logic_vector(resize(shift_right(sum, AVG_SHIFT), DATA_W));
+			END IF;
 			average_ena  <= data_ena;
 
 		END IF;
