@@ -126,6 +126,13 @@ ARCHITECTURE rtl OF lowpass_ema IS
 	SIGNAL avg_rms 			: REAL := 0.0;
 	SIGNAL avg_real 		: REAL := 0.0;
 
+	CONSTANT EXTRA_W   : NATURAL := 4;  -- guard bits: max shift_left + 1 for the add
+	CONSTANT SAT_W     : NATURAL := PROD_W + EXTRA_W;
+	CONSTANT SAT_MAX_V : signed(SAT_W -1 DOWNTO 0) := to_signed(2**(PROD_W-1) - 1, SAT_W);
+	CONSTANT SAT_MIN_V : signed(SAT_W -1 DOWNTO 0) := to_signed(-(2**(PROD_W-1)),  SAT_W);
+
+	SIGNAL sum_wide    : signed(SAT_W -1 DOWNTO 0);
+
 
 BEGIN 
 
@@ -144,8 +151,18 @@ ASSERT False REPORT "FULL_SCALE: " & real'image(FULL_SCALE) SEVERITY NOTE;
 -- pragma translate_on
 
 
-sum 		<=  shift_left(resize(mult_data, PROD_W), MULT_DATA_SHIFT) + 
-				shift_left(resize(mult_sum,  PROD_W), MULT_SUM_SHIFT);
+-- ============================================================================
+-- BEFORE:
+-- sum <= shift_left(resize(mult_data, PROD_W), MULT_DATA_SHIFT) + 
+--        shift_left(resize(mult_sum,  PROD_W), MULT_SUM_SHIFT);
+-- ============================================================================
+
+sum_wide <= shift_left(resize(mult_data, SAT_W), MULT_DATA_SHIFT) +
+            shift_left(resize(mult_sum,  SAT_W), MULT_SUM_SHIFT);
+
+sum <= to_signed(2**(PROD_W-1) - 1, PROD_W) WHEN sum_wide > SAT_MAX_V ELSE
+       to_signed(-(2**(PROD_W-1)),  PROD_W) WHEN sum_wide < SAT_MIN_V ELSE
+       resize(sum_wide, PROD_W);
 
 sum_shift 	<=  resize(shift_right(sum, SUM_SHIFT_W), PROD_W - SUM_SHIFT_W);
 
